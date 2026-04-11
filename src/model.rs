@@ -492,3 +492,357 @@ pub fn list_languages() -> Result<()> {
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ========================================================================
+    // Tests for PhonemeIdValue deserialization
+    // ========================================================================
+
+    #[test]
+    fn test_phoneme_id_value_single() {
+        let json = "42";
+        let result: PhonemeIdValue = serde_json::from_str(json).unwrap();
+        match result {
+            PhonemeIdValue::Single(val) => assert_eq!(val, 42),
+            _ => panic!("Expected Single variant"),
+        }
+    }
+
+    #[test]
+    fn test_phoneme_id_value_multiple() {
+        let json = "[1, 2, 3]";
+        let result: PhonemeIdValue = serde_json::from_str(json).unwrap();
+        match result {
+            PhonemeIdValue::Multiple(vals) => assert_eq!(vals, vec![1, 2, 3]),
+            _ => panic!("Expected Multiple variant"),
+        }
+    }
+
+    #[test]
+    fn test_phoneme_id_value_in_hashmap() {
+        let json = r#"{"a": 1, "b": [2, 3]}"#;
+        let result: HashMap<String, PhonemeIdValue> = serde_json::from_str(json).unwrap();
+        
+        match result.get("a").unwrap() {
+            PhonemeIdValue::Single(val) => assert_eq!(*val, 1),
+            _ => panic!("Expected Single for 'a'"),
+        }
+        
+        match result.get("b").unwrap() {
+            PhonemeIdValue::Multiple(vals) => assert_eq!(*vals, vec![2, 3]),
+            _ => panic!("Expected Multiple for 'b'"),
+        }
+    }
+
+    // ========================================================================
+    // Tests for InferenceConfig defaults
+    // ========================================================================
+
+    #[test]
+    fn test_inference_config_defaults() {
+        let json = r#"{}"#;
+        let config: InferenceConfig = serde_json::from_str(json).unwrap();
+        
+        assert!((config.noise_level - 0.8).abs() < f32::EPSILON);
+        assert!((config.speech_rate - 1.0).abs() < f32::EPSILON);
+        assert!((config.duration_noise_level - 0.8).abs() < f32::EPSILON);
+        assert!((config.scale - 1.0).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn test_inference_config_explicit_values() {
+        let json = r#"{
+            "noise_level": 0.5,
+            "speech_rate": 1.2,
+            "duration_noise_level": 0.6,
+            "scale": 0.9
+        }"#;
+        let config: InferenceConfig = serde_json::from_str(json).unwrap();
+        
+        assert!((config.noise_level - 0.5).abs() < f32::EPSILON);
+        assert!((config.speech_rate - 1.2).abs() < f32::EPSILON);
+        assert!((config.duration_noise_level - 0.6).abs() < f32::EPSILON);
+        assert!((config.scale - 0.9).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn test_inference_config_partial_defaults() {
+        let json = r#"{"noise_level": 0.3}"#;
+        let config: InferenceConfig = serde_json::from_str(json).unwrap();
+        
+        assert!((config.noise_level - 0.3).abs() < f32::EPSILON);
+        assert!((config.speech_rate - 1.0).abs() < f32::EPSILON); // default
+        assert!((config.duration_noise_level - 0.8).abs() < f32::EPSILON); // default
+        assert!((config.scale - 1.0).abs() < f32::EPSILON); // default
+    }
+
+    // ========================================================================
+    // Tests for ModelConfig deserialization
+    // ========================================================================
+
+    #[test]
+    fn test_model_config_minimal() {
+        let json = r#"{
+            "audio": {"sample_rate": 24000},
+            "inference": {},
+            "phoneme_id_map": {"a": 1},
+            "num_symbols": 100,
+            "num_speakers": 1
+        }"#;
+        let config: ModelConfig = serde_json::from_str(json).unwrap();
+        
+        assert_eq!(config.audio.sample_rate, 24000);
+        assert_eq!(config.num_symbols, 100);
+        assert_eq!(config.num_speakers, 1);
+        assert!(config.model_type.is_none());
+        assert!(config.no_blank.is_none());
+        assert!(config.speaker_id_map.is_empty());
+    }
+
+    #[test]
+    fn test_model_config_full() {
+        let json = r#"{
+            "audio": {"sample_rate": 48000},
+            "inference": {"noise_level": 0.5, "speech_rate": 1.1},
+            "phoneme_id_map": {"a": 1, "b": [2, 3]},
+            "num_symbols": 200,
+            "num_speakers": 5,
+            "speaker_id_map": {"alice": 0},
+            "model_type": "multistream_v2",
+            "no_blank": 1
+        }"#;
+        let config: ModelConfig = serde_json::from_str(json).unwrap();
+        
+        assert_eq!(config.audio.sample_rate, 48000);
+        assert!((config.inference.noise_level - 0.5).abs() < f32::EPSILON);
+        assert!((config.inference.speech_rate - 1.1).abs() < f32::EPSILON);
+        assert_eq!(config.num_symbols, 200);
+        assert_eq!(config.num_speakers, 5);
+        assert_eq!(config.speaker_id_map.get("alice"), Some(&0));
+        assert_eq!(config.model_type, Some("multistream_v2".to_string()));
+        assert_eq!(config.no_blank, Some(1));
+    }
+
+    #[test]
+    fn test_model_config_multistream_v1() {
+        let json = r#"{
+            "audio": {"sample_rate": 24000},
+            "inference": {},
+            "phoneme_id_map": {"a": 1},
+            "num_symbols": 100,
+            "num_speakers": 1,
+            "model_type": "multistream_v1"
+        }"#;
+        let config: ModelConfig = serde_json::from_str(json).unwrap();
+        assert_eq!(config.model_type, Some("multistream_v1".to_string()));
+    }
+
+    #[test]
+    fn test_model_config_multistream_v3() {
+        let json = r#"{
+            "audio": {"sample_rate": 24000},
+            "inference": {},
+            "phoneme_id_map": {"a": 1},
+            "num_symbols": 100,
+            "num_speakers": 1,
+            "model_type": "multistream_v3"
+        }"#;
+        let config: ModelConfig = serde_json::from_str(json).unwrap();
+        assert_eq!(config.model_type, Some("multistream_v3".to_string()));
+    }
+
+    #[test]
+    fn test_model_config_legacy_no_blank() {
+        let json = r#"{
+            "audio": {"sample_rate": 24000},
+            "inference": {},
+            "phoneme_id_map": {"a": 1},
+            "num_symbols": 100,
+            "num_speakers": 1,
+            "no_blank": 1
+        }"#;
+        let config: ModelConfig = serde_json::from_str(json).unwrap();
+        assert_eq!(config.no_blank, Some(1));
+        assert!(config.model_type.is_none());
+    }
+
+    #[test]
+    fn test_model_config_no_blank_zero() {
+        let json = r#"{
+            "audio": {"sample_rate": 24000},
+            "inference": {},
+            "phoneme_id_map": {"a": 1},
+            "num_symbols": 100,
+            "num_speakers": 1,
+            "no_blank": 0
+        }"#;
+        let config: ModelConfig = serde_json::from_str(json).unwrap();
+        assert_eq!(config.no_blank, Some(0));
+    }
+
+    // ========================================================================
+    // Tests for AudioConfig
+    // ========================================================================
+
+    #[test]
+    fn test_audio_config() {
+        let json = r#"{"sample_rate": 44100}"#;
+        let config: AudioConfig = serde_json::from_str(json).unwrap();
+        assert_eq!(config.sample_rate, 44100);
+    }
+
+    #[test]
+    fn test_audio_config_standard_rate() {
+        let json = r#"{"sample_rate": 24000}"#;
+        let config: AudioConfig = serde_json::from_str(json).unwrap();
+        assert_eq!(config.sample_rate, 24000);
+    }
+
+    // ========================================================================
+    // Tests for ModelInfo
+    // ========================================================================
+
+    #[test]
+    fn test_model_info_deserialization() {
+        let json = r#"{
+            "name": "vosk-model-tts-ru",
+            "lang": "ru",
+            "type": "small",
+            "obsolete": "false"
+        }"#;
+        let info: ModelInfo = serde_json::from_str(json).unwrap();
+        
+        assert_eq!(info.name, "vosk-model-tts-ru");
+        assert_eq!(info.lang, "ru");
+        assert_eq!(info.model_type, "small");
+        assert_eq!(info.obsolete, "false");
+    }
+
+    #[test]
+    fn test_model_info_list() {
+        let json = r#"[
+            {"name": "model1", "lang": "ru", "type": "small", "obsolete": "false"},
+            {"name": "model2", "lang": "en", "type": "large", "obsolete": "true"}
+        ]"#;
+        let infos: Vec<ModelInfo> = serde_json::from_str(json).unwrap();
+        
+        assert_eq!(infos.len(), 2);
+        assert_eq!(infos[0].name, "model1");
+        assert_eq!(infos[1].lang, "en");
+    }
+
+    // ========================================================================
+    // Tests for dictionary loading logic (simulated)
+    // ========================================================================
+
+    #[test]
+    fn test_dictionary_priority_selection() {
+        // Simulate dictionary loading logic:
+        // When same word has multiple entries, highest probability wins
+        let mut dic: HashMap<String, String> = HashMap::new();
+        let mut probs: HashMap<String, f32> = HashMap::new();
+
+        let lines = vec![
+            "привет 0.5 ph r' iy v' e t",
+            "привет 0.8 ph r' i v' e t",
+            "привет 0.3 ph r' iy v' e t0",
+        ];
+
+        for line in lines {
+            let parts: Vec<&str> = line.splitn(3, char::is_whitespace).collect();
+            if parts.len() >= 3 {
+                let word = parts[0];
+                let prob: f32 = parts[1].parse().unwrap_or(0.0);
+                let phonemes = parts[2];
+
+                let current_prob = probs.get(word).copied().unwrap_or(0.0);
+                if prob > current_prob {
+                    dic.insert(word.to_string(), phonemes.to_string());
+                    probs.insert(word.to_string(), prob);
+                }
+            }
+        }
+
+        // Should have selected the entry with 0.8 probability
+        assert_eq!(dic.get("привет"), Some(&"ph r' i v' e t".to_string()));
+        assert_eq!(*probs.get("привет").unwrap(), 0.8);
+    }
+
+    #[test]
+    fn test_dictionary_single_entry() {
+        let mut dic: HashMap<String, String> = HashMap::new();
+        let mut probs: HashMap<String, f32> = HashMap::new();
+
+        let line = "мир 0.9 m' i r";
+        let parts: Vec<&str> = line.splitn(3, char::is_whitespace).collect();
+        
+        if parts.len() >= 3 {
+            let word = parts[0];
+            let prob: f32 = parts[1].parse().unwrap_or(0.0);
+            let phonemes = parts[2];
+            dic.insert(word.to_string(), phonemes.to_string());
+            probs.insert(word.to_string(), prob);
+        }
+
+        assert_eq!(dic.get("мир"), Some(&"m' i r".to_string()));
+    }
+
+    #[test]
+    fn test_dictionary_malformed_lines() {
+        let mut dic: HashMap<String, String> = HashMap::new();
+        let mut probs: HashMap<String, f32> = HashMap::new();
+
+        let lines = vec![
+            "valid 0.5 v a l' i d",
+            "invalid_no_prob",
+            "also_invalid 0.5",
+            "",
+        ];
+
+        for line in lines {
+            let parts: Vec<&str> = line.splitn(3, char::is_whitespace).collect();
+            if parts.len() >= 3 {
+                let word = parts[0];
+                let prob: f32 = parts[1].parse().unwrap_or(0.0);
+                let phonemes = parts[2];
+
+                let current_prob = probs.get(word).copied().unwrap_or(0.0);
+                if prob > current_prob {
+                    dic.insert(word.to_string(), phonemes.to_string());
+                    probs.insert(word.to_string(), prob);
+                }
+            }
+        }
+
+        // Only the valid line should be added
+        assert_eq!(dic.len(), 1);
+        assert!(dic.contains_key("valid"));
+    }
+
+    #[test]
+    fn test_dictionary_invalid_probability() {
+        let mut dic: HashMap<String, String> = HashMap::new();
+        let mut probs: HashMap<String, f32> = HashMap::new();
+
+        let line = "word not_a_number phonemes";
+        let parts: Vec<&str> = line.splitn(3, char::is_whitespace).collect();
+        
+        if parts.len() >= 3 {
+            let word = parts[0];
+            let prob: f32 = parts[1].parse().unwrap_or(0.0); // Should default to 0.0
+            let phonemes = parts[2];
+
+            let current_prob = probs.get(word).copied().unwrap_or(0.0);
+            if prob > current_prob {
+                dic.insert(word.to_string(), phonemes.to_string());
+                probs.insert(word.to_string(), prob);
+            }
+        }
+
+        // Should not be added since prob is 0.0
+        assert!(!dic.contains_key("word"));
+    }
+}

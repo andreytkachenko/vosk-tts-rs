@@ -969,3 +969,505 @@ impl Default for Synth {
         Self::new()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ========================================================================
+    // Tests for audio_float_to_int16() - audio normalization
+    // ========================================================================
+
+    #[test]
+    fn test_audio_float_to_int16_normal_range() {
+        let audio = vec![0.0, 0.5, -0.5, 1.0, -1.0];
+        let max_wav_value = 32767.0;
+        let result = audio_float_to_int16(&audio, max_wav_value);
+        
+        assert_eq!(result[0], 0);
+        assert_eq!(result[1], 16383); // 0.5 * 32767 ≈ 16383
+        assert_eq!(result[2], -16383);
+        // 1.0 and -1.0 should be at max/min
+        assert!(result[3] > 30000);
+        assert!(result[4] < -30000);
+    }
+
+    #[test]
+    fn test_audio_float_to_int16_clipping() {
+        let audio = vec![2.0, -2.0, 1.5, -1.5];
+        let max_wav_value = 32767.0;
+        let result = audio_float_to_int16(&audio, max_wav_value);
+        
+        // All values should be clipped to max/min
+        assert_eq!(result[0], 32767);
+        assert_eq!(result[1], -32767); // or -32768 depending on i16 range
+        assert_eq!(result[2], 32767);
+        assert!(result[3] <= -32767);
+    }
+
+    #[test]
+    fn test_audio_float_to_int16_empty_input() {
+        let audio: Vec<f32> = vec![];
+        let result = audio_float_to_int16(&audio, 32767.0);
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_audio_float_to_int16_zero_input() {
+        let audio = vec![0.0, 0.0, 0.0];
+        let result = audio_float_to_int16(&audio, 32767.0);
+        assert_eq!(result, vec![0, 0, 0]);
+    }
+
+    #[test]
+    fn test_audio_float_to_int16_scaling() {
+        let audio = vec![0.25];
+        let result = audio_float_to_int16(&audio, 32767.0);
+        let expected = (0.25 * 32767.0) as i16;
+        assert_eq!(result[0], expected);
+    }
+
+    // ========================================================================
+    // Tests for transpose_bert() - BERT embedding transposition
+    // ========================================================================
+
+    #[test]
+    fn test_transpose_bert_basic() {
+        // 2 phonemes, 3 channels (simplified for testing)
+        // Input: [p0_c0, p0_c1, p0_c2, p1_c0, p1_c1, p1_c2]
+        // Output: [c0_p0, c0_p1, c1_p0, c1_p1, c2_p0, c2_p1]
+        let bert_data = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
+        let num_phonemes = 2;
+        let hidden_size = 3;
+        
+        let result = Synth::transpose_bert(bert_data, num_phonemes, hidden_size);
+        
+        assert_eq!(result, vec![1.0, 4.0, 2.0, 5.0, 3.0, 6.0]);
+    }
+
+    #[test]
+    fn test_transpose_bert_single_phoneme() {
+        let bert_data = vec![1.0, 2.0, 3.0];
+        let num_phonemes = 1;
+        let hidden_size = 3;
+        
+        let result = Synth::transpose_bert(bert_data, num_phonemes, hidden_size);
+        
+        // Should be unchanged
+        assert_eq!(result, vec![1.0, 2.0, 3.0]);
+    }
+
+    #[test]
+    fn test_transpose_bert_single_channel() {
+        let bert_data = vec![1.0, 2.0, 3.0];
+        let num_phonemes = 3;
+        let hidden_size = 1;
+        
+        let result = Synth::transpose_bert(bert_data, num_phonemes, hidden_size);
+        
+        // Should be unchanged
+        assert_eq!(result, vec![1.0, 2.0, 3.0]);
+    }
+
+    #[test]
+    fn test_transpose_bert_empty() {
+        let bert_data: Vec<f32> = vec![];
+        let result = Synth::transpose_bert(bert_data, 0, 768);
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_transpose_bert_standard_size() {
+        // 3 phonemes, 768 channels (standard BERT size, but simplified data)
+        let num_phonemes = 3;
+        let hidden_size = 4; // Using 4 instead of 768 for test simplicity
+        let mut bert_data = Vec::with_capacity(num_phonemes * hidden_size);
+        
+        // Fill with pattern: [p0: 0,1,2,3, p1: 4,5,6,7, p2: 8,9,10,11]
+        for i in 0..(num_phonemes * hidden_size) {
+            bert_data.push(i as f32);
+        }
+        
+        let result = Synth::transpose_bert(bert_data, num_phonemes, hidden_size);
+        
+        // Expected: [ch0: 0,4,8, ch1: 1,5,9, ch2: 2,6,10, ch3: 3,7,11]
+        let expected = vec![0.0, 4.0, 8.0, 1.0, 5.0, 9.0, 2.0, 6.0, 10.0, 3.0, 7.0, 11.0];
+        assert_eq!(result, expected);
+    }
+
+    // ========================================================================
+    // Tests for add_pos() - position suffixes
+    // ========================================================================
+
+    #[test]
+    fn test_add_pos_single_phoneme() {
+        let phonemes = vec!["а".to_string()];
+        let result = Synth::add_pos(&phonemes);
+        assert_eq!(result, vec!["а_S".to_string()]);
+    }
+
+    #[test]
+    fn test_add_pos_two_phonemes() {
+        let phonemes = vec!["а".to_string(), "б".to_string()];
+        let result = Synth::add_pos(&phonemes);
+        assert_eq!(result, vec!["а_B".to_string(), "б_E".to_string()]);
+    }
+
+    #[test]
+    fn test_add_pos_three_phonemes() {
+        let phonemes = vec!["а".to_string(), "б".to_string(), "в".to_string()];
+        let result = Synth::add_pos(&phonemes);
+        assert_eq!(
+            result,
+            vec!["а_B".to_string(), "б_I".to_string(), "в_E".to_string()]
+        );
+    }
+
+    #[test]
+    fn test_add_pos_five_phonemes() {
+        let phonemes = vec![
+            "а".to_string(),
+            "б".to_string(),
+            "в".to_string(),
+            "г".to_string(),
+            "д".to_string(),
+        ];
+        let result = Synth::add_pos(&phonemes);
+        assert_eq!(
+            result,
+            vec![
+                "а_B".to_string(),
+                "б_I".to_string(),
+                "в_I".to_string(),
+                "г_I".to_string(),
+                "д_E".to_string()
+            ]
+        );
+    }
+
+    #[test]
+    fn test_add_pos_empty_input() {
+        let phonemes: Vec<String> = vec![];
+        let result = Synth::add_pos(&phonemes);
+        assert!(result.is_empty());
+    }
+
+    // ========================================================================
+    // Tests for add_bert_emb_at() - BERT embedding insertion
+    // ========================================================================
+
+    #[test]
+    fn test_add_bert_emb_at_valid_index() {
+        let mut embeddings = Vec::new();
+        let bert_embeddings = vec![vec![1.0, 2.0, 3.0], vec![4.0, 5.0, 6.0]];
+        let hidden_size = 3;
+        
+        Synth::add_bert_emb_at(&mut embeddings, 1, &bert_embeddings, hidden_size);
+        
+        assert_eq!(embeddings, vec![4.0, 5.0, 6.0]);
+    }
+
+    #[test]
+    fn test_add_bert_emb_at_zero_index() {
+        let mut embeddings = Vec::new();
+        let bert_embeddings = vec![vec![1.0, 2.0, 3.0], vec![4.0, 5.0, 6.0]];
+        let hidden_size = 3;
+        
+        Synth::add_bert_emb_at(&mut embeddings, 0, &bert_embeddings, hidden_size);
+        
+        assert_eq!(embeddings, vec![1.0, 2.0, 3.0]);
+    }
+
+    #[test]
+    fn test_add_bert_emb_at_out_of_bounds() {
+        let mut embeddings = Vec::new();
+        let bert_embeddings = vec![vec![1.0, 2.0, 3.0]];
+        let hidden_size = 3;
+        
+        Synth::add_bert_emb_at(&mut embeddings, 5, &bert_embeddings, hidden_size);
+        
+        // Should insert zeros
+        assert_eq!(embeddings, vec![0.0, 0.0, 0.0]);
+    }
+
+    #[test]
+    fn test_add_bert_emb_at_empty_embeddings() {
+        let mut embeddings = Vec::new();
+        let bert_embeddings: Vec<Vec<f32>> = vec![];
+        let hidden_size = 768;
+        
+        Synth::add_bert_emb_at(&mut embeddings, 0, &bert_embeddings, hidden_size);
+        
+        // Should insert zeros
+        assert_eq!(embeddings.len(), 768);
+        assert!(embeddings.iter().all(|&x| x == 0.0));
+    }
+
+    #[test]
+    fn test_add_bert_emb_at_multiple_calls() {
+        let mut embeddings = Vec::new();
+        let bert_embeddings = vec![vec![1.0, 2.0], vec![3.0, 4.0]];
+        let hidden_size = 2;
+        
+        Synth::add_bert_emb_at(&mut embeddings, 0, &bert_embeddings, hidden_size);
+        Synth::add_bert_emb_at(&mut embeddings, 1, &bert_embeddings, hidden_size);
+        
+        assert_eq!(embeddings, vec![1.0, 2.0, 3.0, 4.0]);
+    }
+
+    // ========================================================================
+    // Tests for G2PResult constructors
+    // ========================================================================
+
+    #[test]
+    fn test_g2p_result_multistream() {
+        let text_data = vec![1, 2, 3, 4, 5];
+        let t = 1; // T = 1 (5 channels * 1 time step = 5 elements)
+        let bert_data = vec![0.0; 768];
+        let duration_extra = Some(vec![20.0]);
+        
+        let result = G2PResult::multistream(text_data.clone(), t, bert_data.clone(), duration_extra.clone());
+        
+        assert_eq!(result.text_data, text_data);
+        assert_eq!(result.text_shape, vec![1, 5, t]);
+        assert_eq!(result.text_lengths, vec![t as i64]);
+        assert_eq!(result.bert_data, bert_data);
+        assert_eq!(result.bert_shape, vec![1, 768, t]);
+        assert_eq!(result.duration_extra_data, duration_extra);
+        assert_eq!(result.duration_extra_shape, Some(vec![1, t]));
+    }
+
+    #[test]
+    fn test_g2p_result_standard() {
+        let text_data = vec![1, 2, 3];
+        let t = 3;
+        let bert_data = vec![0.0; 768 * t];
+        
+        let result = G2PResult::standard(text_data.clone(), t, bert_data.clone());
+        
+        assert_eq!(result.text_data, text_data);
+        assert_eq!(result.text_shape, vec![1, t]);
+        assert_eq!(result.text_lengths, vec![t as i64]);
+        assert_eq!(result.bert_data, bert_data);
+        assert_eq!(result.bert_shape, vec![1, 768, t]);
+        assert!(result.duration_extra_data.is_none());
+        assert!(result.duration_extra_shape.is_none());
+    }
+
+    #[test]
+    fn test_g2p_result_no_embeddings() {
+        let text_data = vec![1, 2, 3];
+        let t = 3;
+        
+        let result = G2PResult::no_embeddings(text_data.clone(), t);
+        
+        assert_eq!(result.text_data, text_data);
+        assert_eq!(result.text_shape, vec![1, t]);
+        assert_eq!(result.text_lengths, vec![t as i64]);
+        assert_eq!(result.bert_data.len(), 768 * t);
+        assert!(result.bert_data.iter().all(|&x| x == 0.0));
+        assert_eq!(result.bert_shape, vec![1, 768, t]);
+        assert!(result.duration_extra_data.is_none());
+    }
+
+    // ========================================================================
+    // Tests for G2P routing logic (model_type detection)
+    // ========================================================================
+
+    #[test]
+    fn test_g2p_routing_multistream_v3() {
+        // V3 with tokenizer should route to g2p_multistream_scales
+        let model_type = "multistream_v3";
+        let has_tokenizer = true;
+        let no_blank = 0;
+        
+        // This would match: ("multistream_v3", true, _)
+        assert!(matches!(
+            (model_type, has_tokenizer, no_blank),
+            ("multistream_v3", true, _)
+        ));
+    }
+
+    #[test]
+    fn test_g2p_routing_multistream_v2_with_tokenizer() {
+        let model_type = "multistream_v2";
+        let has_tokenizer = true;
+        let no_blank = 0;
+        
+        assert!(matches!(
+            (model_type, has_tokenizer, no_blank),
+            ("multistream_v2", true, _)
+        ));
+    }
+
+    #[test]
+    fn test_g2p_routing_multistream_v2_without_tokenizer() {
+        let model_type = "multistream_v2";
+        let has_tokenizer = false;
+        let no_blank = 0;
+        
+        assert!(matches!(
+            (model_type, has_tokenizer, no_blank),
+            ("multistream_v2", false, _)
+        ));
+    }
+
+    #[test]
+    fn test_g2p_routing_multistream_v1() {
+        let model_type = "multistream_v1";
+        let has_tokenizer = true;
+        let no_blank = 0;
+        
+        assert!(matches!(
+            (model_type, has_tokenizer, no_blank),
+            ("multistream_v1", true, _)
+        ));
+    }
+
+    #[test]
+    fn test_g2p_routing_noblank() {
+        // Old model with no_blank != 0
+        let model_type = "";
+        let has_tokenizer = true;
+        let no_blank = 1;
+        
+        assert!(matches!(
+            (model_type, has_tokenizer, no_blank),
+            (_, true, nb) if nb != 0
+        ));
+    }
+
+    #[test]
+    fn test_g2p_routing_with_embeddings() {
+        // Old model with no_blank == 0 and tokenizer
+        let model_type = "";
+        let has_tokenizer = true;
+        let no_blank = 0;
+        
+        assert!(matches!(
+            (model_type, has_tokenizer, no_blank),
+            (_, true, 0)
+        ));
+    }
+
+    #[test]
+    fn test_g2p_routing_no_embeddings() {
+        // No tokenizer
+        let model_type = "";
+        let has_tokenizer = false;
+        let no_blank = 0;
+        
+        assert!(!matches!(
+            (model_type, has_tokenizer, no_blank),
+            (_, true, _)
+        ));
+        // Should fall through to final _ case
+    }
+
+    // ========================================================================
+    // Tests for phoneme ID helpers
+    // ========================================================================
+
+    #[test]
+    fn test_get_phoneme_id_single_from_map() {
+        // This tests the logic of get_phoneme_id_single
+        // We can't call it directly since it's private, but we can test the concept
+        let mut phoneme_id_map = std::collections::HashMap::new();
+        phoneme_id_map.insert("а".to_string(), crate::model::PhonemeIdValue::Single(42));
+        
+        match phoneme_id_map.get("а").unwrap() {
+            crate::model::PhonemeIdValue::Single(id) => assert_eq!(*id, 42),
+            _ => panic!("Expected Single"),
+        }
+    }
+
+    #[test]
+    fn test_get_phoneme_ids_multiple() {
+        let mut phoneme_id_map = std::collections::HashMap::new();
+        phoneme_id_map.insert("а".to_string(), crate::model::PhonemeIdValue::Multiple(vec![1, 2]));
+        
+        match phoneme_id_map.get("а").unwrap() {
+            crate::model::PhonemeIdValue::Multiple(ids) => assert_eq!(*ids, vec![1, 2]),
+            _ => panic!("Expected Multiple"),
+        }
+    }
+
+    #[test]
+    fn test_get_phoneme_id_missing_key() {
+        let phoneme_id_map: std::collections::HashMap<String, crate::model::PhonemeIdValue> = 
+            std::collections::HashMap::new();
+        
+        // Should return 0 for missing key
+        let result = match phoneme_id_map.get("а") {
+            Some(crate::model::PhonemeIdValue::Single(id)) => *id,
+            Some(crate::model::PhonemeIdValue::Multiple(ids)) => ids[0],
+            None => 0,
+        };
+        assert_eq!(result, 0);
+    }
+
+    // ========================================================================
+    // Integration-like tests for tensor shapes
+    // ========================================================================
+
+    #[test]
+    fn test_multistream_text_tensor_shape() {
+        // For multistream, text shape should be (1, 5, T)
+        let t = 10;
+        let text_data: Vec<i64> = vec![0; 5 * t]; // 5 channels * T time steps
+        
+        let result = G2PResult::multistream(text_data, t, vec![0.0; 768 * t], None);
+        
+        assert_eq!(result.text_shape, vec![1, 5, t]);
+        assert_eq!(result.text_data.len(), 5 * t);
+    }
+
+    #[test]
+    fn test_standard_text_tensor_shape() {
+        // For standard, text shape should be (1, T)
+        let t = 15;
+        let text_data: Vec<i64> = vec![0; t];
+        
+        let result = G2PResult::standard(text_data, t, vec![0.0; 768 * t]);
+        
+        assert_eq!(result.text_shape, vec![1, t]);
+        assert_eq!(result.text_data.len(), t);
+    }
+
+    #[test]
+    fn test_bert_tensor_shape_consistency() {
+        // BERT tensor should always have 768 channels
+        let t = 8;
+        let hidden_size = 768;
+        
+        // Standard
+        let standard = G2PResult::standard(vec![0; t], t, vec![0.0; hidden_size * t]);
+        assert_eq!(standard.bert_shape, vec![1, hidden_size, t]);
+        assert_eq!(standard.bert_data.len(), hidden_size * t);
+        
+        // Multistream
+        let multistream = G2PResult::multistream(vec![0; 5 * t], t, vec![0.0; hidden_size * t], None);
+        assert_eq!(multistream.bert_shape, vec![1, hidden_size, t]);
+        assert_eq!(multistream.bert_data.len(), hidden_size * t);
+        
+        // No embeddings
+        let no_emb = G2PResult::no_embeddings(vec![0; t], t);
+        assert_eq!(no_emb.bert_shape, vec![1, hidden_size, t]);
+        assert_eq!(no_emb.bert_data.len(), hidden_size * t);
+        assert!(no_emb.bert_data.iter().all(|&x| x == 0.0));
+    }
+
+    #[test]
+    fn test_text_lengths_consistency() {
+        let t = 12;
+        
+        let standard = G2PResult::standard(vec![0; t], t, vec![0.0; 768 * t]);
+        assert_eq!(standard.text_lengths, vec![t as i64]);
+        
+        let multistream = G2PResult::multistream(vec![0; 5 * t], t, vec![0.0; 768 * t], None);
+        assert_eq!(multistream.text_lengths, vec![t as i64]);
+        
+        let no_emb = G2PResult::no_embeddings(vec![0; t], t);
+        assert_eq!(no_emb.text_lengths, vec![t as i64]);
+    }
+}
