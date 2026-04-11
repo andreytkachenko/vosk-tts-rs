@@ -53,11 +53,14 @@ struct Phone {
 
 fn pallatize(phones: &mut Vec<Phone>) {
     let soft_letters: HashSet<char> = SOFT_LETTERS.chars().collect();
-    
+
     for i in 0..phones.len().saturating_sub(1) {
         let phone_symbol = phones[i].symbol.clone();
-        
-        if let Some(&(_, replacement)) = SOFTHARD_CONS.iter().find(|&&(letter, _)| letter == phone_symbol) {
+
+        if let Some(&(_, replacement)) = SOFTHARD_CONS
+            .iter()
+            .find(|&&(letter, _)| letter == phone_symbol)
+        {
             let next_char = phones[i + 1].symbol.chars().next();
             if let Some(next_ch) = next_char {
                 if soft_letters.contains(&next_ch) {
@@ -73,8 +76,11 @@ fn pallatize(phones: &mut Vec<Phone>) {
                 }
             }
         }
-        
-        if let Some(&(_, replacement)) = OTHER_CONS.iter().find(|&&(letter, _)| letter == phone_symbol) {
+
+        if let Some(&(_, replacement)) = OTHER_CONS
+            .iter()
+            .find(|&&(letter, _)| letter == phone_symbol)
+        {
             phones[i] = Phone {
                 symbol: replacement.to_string(),
                 stress: 0,
@@ -120,10 +126,10 @@ fn convert_vowels(phones: &[Phone]) -> Vec<String> {
 }
 
 /// Converts a stress-marked Russian word to phoneme sequence
-/// 
+///
 /// # Arguments
 /// * `stress_word` - Word with stress marked using '+' character (e.g., "абстр+акция")
-/// 
+///
 /// # Returns
 /// Space-separated phoneme string
 pub fn convert(stress_word: &str) -> String {
@@ -156,7 +162,8 @@ pub fn convert(stress_word: &str) -> String {
     let filtered: Vec<String> = phones
         .into_iter()
         .filter(|p| {
-            p.chars().next()
+            p.chars()
+                .next()
                 .map(|ch| !others_set.contains(&ch))
                 .unwrap_or(false)
         })

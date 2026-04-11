@@ -1,6 +1,6 @@
-pub mod model;
 pub mod g2p;
+pub mod model;
 pub mod synth;
 
-pub use model::{Model, list_models, list_languages};
-pub use synth::{Synth, G2PResult};
+pub use model::{list_languages, list_models, Model};
+pub use synth::{G2PResult, Synth};

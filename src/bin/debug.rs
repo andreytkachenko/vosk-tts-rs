@@ -75,8 +75,14 @@ fn main() {
     let duration_noise_level = model.config.inference.duration_noise_level;
     let scale = model.config.inference.scale;
 
-    println!("\nParameters: noise_level={}, speech_rate={}", noise_level, speech_rate);
-    println!("  duration_noise_level={}, scale={}, speaker_id=0", duration_noise_level, scale);
+    println!(
+        "\nParameters: noise_level={}, speech_rate={}",
+        noise_level, speech_rate
+    );
+    println!(
+        "  duration_noise_level={}, scale={}, speaker_id=0",
+        duration_noise_level, scale
+    );
 
     // Manually run G2P and dump tensors
     let text = test_text.trim().replace('—', "-");
@@ -85,7 +91,10 @@ fn main() {
     let no_blank = model.config.no_blank.unwrap_or(0);
 
     println!("\n--- G2P Processing ---");
-    println!("Model type: {}, has_tokenizer: {}, no_blank: {}", model_type, has_tokenizer, no_blank);
+    println!(
+        "Model type: {}, has_tokenizer: {}, no_blank: {}",
+        model_type, has_tokenizer, no_blank
+    );
 
     // Run G2P
     let g2p_result = match (model_type, has_tokenizer, no_blank) {
@@ -100,9 +109,13 @@ fn main() {
     };
 
     println!("\n--- Final Input Tensors ---");
-    dump_array_i64("input (text)", &g2p_result.text_data, &g2p_result.text_shape);
+    dump_array_i64(
+        "input (text)",
+        &g2p_result.text_data,
+        &g2p_result.text_shape,
+    );
     dump_array_i64("input_lengths", &g2p_result.text_lengths, &[1]);
-    
+
     let scales = vec![noise_level, 1.0 / speech_rate, duration_noise_level];
     dump_array("scales", &scales, &[3]);
     dump_array_i64("sid", &[0], &[1]);
@@ -117,44 +130,92 @@ fn main() {
     println!("\n--- Saving to JSON ---");
     let mut dump = serde_json::Map::new();
     dump.insert("text".to_string(), serde_json::Value::String(text.clone()));
-    dump.insert("model_type".to_string(), serde_json::Value::String(model_type.to_string()));
-    dump.insert("has_tokenizer".to_string(), serde_json::Value::Bool(has_tokenizer));
-    dump.insert("no_blank".to_string(), serde_json::Value::Number(no_blank.into()));
+    dump.insert(
+        "model_type".to_string(),
+        serde_json::Value::String(model_type.to_string()),
+    );
+    dump.insert(
+        "has_tokenizer".to_string(),
+        serde_json::Value::Bool(has_tokenizer),
+    );
+    dump.insert(
+        "no_blank".to_string(),
+        serde_json::Value::Number(no_blank.into()),
+    );
     dump.insert("input".to_string(), serde_json::json!(g2p_result.text_data));
-    dump.insert("input_shape".to_string(), serde_json::json!(g2p_result.text_shape));
-    dump.insert("input_lengths".to_string(), serde_json::json!(g2p_result.text_lengths));
+    dump.insert(
+        "input_shape".to_string(),
+        serde_json::json!(g2p_result.text_shape),
+    );
+    dump.insert(
+        "input_lengths".to_string(),
+        serde_json::json!(g2p_result.text_lengths),
+    );
     dump.insert("scales".to_string(), serde_json::json!(scales));
     dump.insert("sid".to_string(), serde_json::json!(vec![0i64]));
-    dump.insert("bert_shape".to_string(), serde_json::json!(g2p_result.bert_shape));
-    dump.insert("bert_flat".to_string(), serde_json::json!(g2p_result.bert_data));
+    dump.insert(
+        "bert_shape".to_string(),
+        serde_json::json!(g2p_result.bert_shape),
+    );
+    dump.insert(
+        "bert_flat".to_string(),
+        serde_json::json!(g2p_result.bert_data),
+    );
     if let Some(ref dur) = g2p_result.duration_extra_data {
         dump.insert("duration_extra".to_string(), serde_json::json!(dur));
-        dump.insert("duration_extra_shape".to_string(), serde_json::json!(g2p_result.duration_extra_shape));
+        dump.insert(
+            "duration_extra_shape".to_string(),
+            serde_json::json!(g2p_result.duration_extra_shape),
+        );
     }
 
     // Run inference
     println!("\n--- Running Inference ---");
-    let audio = synth.synth_audio(
-        &mut model,
-        &text,
-        Some(0),
-        Some(noise_level),
-        Some(speech_rate),
-        Some(duration_noise_level),
-        Some(scale),
-    ).unwrap();
+    let audio = synth
+        .synth_audio(
+            &mut model,
+            &text,
+            Some(0),
+            Some(noise_level),
+            Some(speech_rate),
+            Some(duration_noise_level),
+            Some(scale),
+        )
+        .unwrap();
 
     let audio_f32: Vec<f32> = audio.iter().map(|&x| x as f32 / 32767.0).collect();
     println!("Output audio shape: [{}]", audio.len());
     let n_show = 50.min(audio_f32.len());
-    let vals_str: Vec<String> = audio_f32[..n_show].iter().map(|x| format!("{}", x)).collect();
+    let vals_str: Vec<String> = audio_f32[..n_show]
+        .iter()
+        .map(|x| format!("{}", x))
+        .collect();
     println!("Output first {}: [{}]", n_show, vals_str.join(", "));
-    let min = audio.iter().cloned().map(|x| x as f32).fold(f32::INFINITY, f32::min);
-    let max = audio.iter().cloned().map(|x| x as f32).fold(f32::NEG_INFINITY, f32::max);
-    println!("Output min={}, max={}, total samples={}", min, max, audio.len());
+    let min = audio
+        .iter()
+        .cloned()
+        .map(|x| x as f32)
+        .fold(f32::INFINITY, f32::min);
+    let max = audio
+        .iter()
+        .cloned()
+        .map(|x| x as f32)
+        .fold(f32::NEG_INFINITY, f32::max);
+    println!(
+        "Output min={}, max={}, total samples={}",
+        min,
+        max,
+        audio.len()
+    );
 
-    dump.insert("output_shape".to_string(), serde_json::json!(vec![audio.len()]));
-    dump.insert("output_flat_first50".to_string(), serde_json::json!(&audio_f32[..n_show.min(audio_f32.len())]));
+    dump.insert(
+        "output_shape".to_string(),
+        serde_json::json!(vec![audio.len()]),
+    );
+    dump.insert(
+        "output_flat_first50".to_string(),
+        serde_json::json!(&audio_f32[..n_show.min(audio_f32.len())]),
+    );
 
     let out_path = "/tmp/rust_tensors.json";
     fs::write(out_path, serde_json::to_string_pretty(&dump).unwrap()).unwrap();

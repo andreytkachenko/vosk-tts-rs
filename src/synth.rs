@@ -83,11 +83,7 @@ impl G2PResult {
     }
 
     /// For non-multistream: text shape (1, T), bert shape (1, 768, T)
-    fn standard(
-        text_data: Vec<i64>,
-        t: usize,
-        bert_data: Vec<f32>,
-    ) -> Self {
+    fn standard(text_data: Vec<i64>, t: usize, bert_data: Vec<f32>) -> Self {
         G2PResult {
             text_data,
             text_shape: vec![1, t],
@@ -180,8 +176,7 @@ impl Synth {
         )?;
         let scales_tensor =
             Value::from_array(ArrayD::<f32>::from_shape_vec(vec![3], scales).unwrap())?;
-        let sid_tensor =
-            Value::from_array(ArrayD::<i64>::from_shape_vec(vec![1], sid).unwrap())?;
+        let sid_tensor = Value::from_array(ArrayD::<i64>::from_shape_vec(vec![1], sid).unwrap())?;
         let bert_tensor = Value::from_array(
             ArrayD::<f32>::from_shape_vec(g2p_result.bert_shape.clone(), g2p_result.bert_data)
                 .unwrap(),
@@ -234,7 +229,10 @@ impl Synth {
 
         info!(
             "Real-time factor: {:.2} (infer={:.2} sec, audio={:.2} sec, samples={})",
-            rtf, infer_sec, audio_duration_sec, audio_int16.len()
+            rtf,
+            infer_sec,
+            audio_duration_sec,
+            audio_int16.len()
         );
 
         Ok(audio_int16)
@@ -408,12 +406,7 @@ impl Synth {
     // Corresponds to Python g2p_multistream()
     // ========================================================================
 
-    pub fn g2p_multistream(
-        &self,
-        model: &Model,
-        text: &str,
-        word_pos: bool,
-    ) -> Result<G2PResult> {
+    pub fn g2p_multistream(&self, model: &Model, text: &str, word_pos: bool) -> Result<G2PResult> {
         let re = regex::Regex::new(r#"(\.\.\.|- |[ ,.?!;:"()])"#).unwrap();
         let text_clean = text.replace(" -", "- ");
 
@@ -475,17 +468,18 @@ impl Synth {
                 continue;
             }
 
-            let word_phonemes_raw = if let Some(dic_entry) = model.dic.get(word.to_lowercase().as_str()) {
-                dic_entry
-                    .split_whitespace()
-                    .map(String::from)
-                    .collect::<Vec<_>>()
-            } else {
-                g2p::convert(word)
-                    .split_whitespace()
-                    .map(String::from)
-                    .collect()
-            };
+            let word_phonemes_raw =
+                if let Some(dic_entry) = model.dic.get(word.to_lowercase().as_str()) {
+                    dic_entry
+                        .split_whitespace()
+                        .map(String::from)
+                        .collect::<Vec<_>>()
+                } else {
+                    g2p::convert(word)
+                        .split_whitespace()
+                        .map(String::from)
+                        .collect()
+                };
 
             let word_phonemes = if word_pos {
                 Self::add_pos(&word_phonemes_raw)
@@ -502,17 +496,15 @@ impl Synth {
             bert_word_index += 1;
         }
 
-        phonemes.push((
-            " ".to_string(),
-            cur_punc.clone(),
-            in_quote,
-            bert_word_index,
-        ));
+        phonemes.push((" ".to_string(), cur_punc.clone(), in_quote, bert_word_index));
         phonemes.push(("$".to_string(), vec![], 0, bert_word_index));
 
         info!("Phonemes after forward pass ({}):", phonemes.len());
         for (i, p) in phonemes.iter().enumerate() {
-            info!("  [{}] phoneme='{}' cur_punc={:?} in_quote={} bert_idx={}", i, p.0, p.1, p.2, p.3);
+            info!(
+                "  [{}] phoneme='{}' cur_punc={:?} in_quote={} bert_idx={}",
+                i, p.0, p.1, p.2, p.3
+            );
         }
 
         // Process in reverse (exactly like Python)
@@ -588,13 +580,16 @@ impl Synth {
         // BERT embeddings: transpose from phoneme-major to channel-major
         // Python: np.array(bert_embs_raw) → (T, 768), transpose → (768, T)
         // So we need: [ch0_all_phonemes, ch1_all_phonemes, ..., ch767_all_phonemes]
-        let bert_raw: Vec<Vec<f32>> = rev_bert_indices.iter().map(|&bert_idx| {
-            if bert_idx < bert_embeddings.len() {
-                bert_embeddings[bert_idx].clone()
-            } else {
-                vec![0.0f32; hidden_size]
-            }
-        }).collect();
+        let bert_raw: Vec<Vec<f32>> = rev_bert_indices
+            .iter()
+            .map(|&bert_idx| {
+                if bert_idx < bert_embeddings.len() {
+                    bert_embeddings[bert_idx].clone()
+                } else {
+                    vec![0.0f32; hidden_size]
+                }
+            })
+            .collect();
 
         // Transpose: from [T][768] to [768][T]
         let mut bert_data = Vec::with_capacity(t * hidden_size);
@@ -694,17 +689,15 @@ impl Synth {
             bert_word_index += 1;
         }
 
-        phonemes.push((
-            " ".to_string(),
-            cur_punc.clone(),
-            in_quote,
-            bert_word_index,
-        ));
+        phonemes.push((" ".to_string(), cur_punc.clone(), in_quote, bert_word_index));
         phonemes.push(("$".to_string(), vec![], 0, bert_word_index));
 
         info!("Phonemes after forward pass v3 ({}):", phonemes.len());
         for (i, p) in phonemes.iter().enumerate() {
-            info!("  [{}] phoneme='{}' cur_punc={:?} in_quote={} bert_idx={}", i, p.0, p.1, p.2, p.3);
+            info!(
+                "  [{}] phoneme='{}' cur_punc={:?} in_quote={} bert_idx={}",
+                i, p.0, p.1, p.2, p.3
+            );
         }
 
         let mut last_punc = " ".to_string();
@@ -784,13 +777,16 @@ impl Synth {
         }
 
         // BERT embeddings: transpose from phoneme-major to channel-major
-        let bert_raw: Vec<Vec<f32>> = rev_bert_indices.iter().map(|&bert_idx| {
-            if bert_idx < bert_embeddings.len() {
-                bert_embeddings[bert_idx].clone()
-            } else {
-                vec![0.0f32; hidden_size]
-            }
-        }).collect();
+        let bert_raw: Vec<Vec<f32>> = rev_bert_indices
+            .iter()
+            .map(|&bert_idx| {
+                if bert_idx < bert_embeddings.len() {
+                    bert_embeddings[bert_idx].clone()
+                } else {
+                    vec![0.0f32; hidden_size]
+                }
+            })
+            .collect();
 
         // Transpose: from [T][768] to [768][T]
         let mut bert_data = Vec::with_capacity(t * hidden_size);
@@ -803,7 +799,12 @@ impl Synth {
         info!("Text: {}", text);
         info!("Phonemes count (multistream_scales T={}): {}", t, t);
 
-        Ok(G2PResult::multistream(text_data, t, bert_data, Some(phone_duration_extra)))
+        Ok(G2PResult::multistream(
+            text_data,
+            t,
+            bert_data,
+            Some(phone_duration_extra),
+        ))
     }
 
     // ========================================================================

@@ -179,8 +179,8 @@ impl Model {
 
             // Add BERT post-processor (adds [CLS] and [SEP])
             tokenizer.with_post_processor(Some(BertProcessing::new(
-                ("[SEP]".to_string(), 102),  // [SEP] token ID
-                ("[CLS]".to_string(), 101),  // [CLS] token ID
+                ("[SEP]".to_string(), 102), // [SEP] token ID
+                ("[CLS]".to_string(), 101), // [CLS] token ID
             )));
 
             info!("tokenizer loaded");
@@ -250,9 +250,7 @@ impl Model {
 
         // Encode text
         let text_clean = text.replace('+', "").replace('_', "");
-        let encoding = tokenizer
-            .encode(text_clean.as_str(), true)
-            .ok()?;
+        let encoding = tokenizer.encode(text_clean.as_str(), true).ok()?;
         let ids: Vec<i64> = encoding.get_ids().iter().map(|&x| x as i64).collect();
         let attention_mask: Vec<i64> = encoding
             .get_attention_mask()
@@ -262,7 +260,10 @@ impl Model {
         let type_ids: Vec<i64> = encoding.get_type_ids().iter().map(|&x| x as i64).collect();
         let tokens = encoding.get_tokens();
 
-        info!("BERT encode: text='{}', tokens={:?}, input_ids={:?}", text_clean, tokens, ids);
+        info!(
+            "BERT encode: text='{}', tokens={:?}, input_ids={:?}",
+            text_clean, tokens, ids
+        );
 
         // Run BERT inference
         let input_ids_array = ArrayD::<i64>::from_shape_vec(vec![1, ids.len()], ids).ok()?;
@@ -281,7 +282,11 @@ impl Model {
 
         // Extract embeddings - shape [1, seq_len, 768]
         let (_shape, data) = outputs[0].try_extract_tensor::<f32>().ok()?;
-        info!("BERT output: seq_len={}, first 10 values: {:?}", data.len() / 768, &data[..10.min(data.len())]);
+        info!(
+            "BERT output: seq_len={}, first 10 values: {:?}",
+            data.len() / 768,
+            &data[..10.min(data.len())]
+        );
 
         // data is [1, seq_len, 768] flattened
         let hidden_size = 768;

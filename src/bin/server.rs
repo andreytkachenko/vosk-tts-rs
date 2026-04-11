@@ -1,9 +1,9 @@
-use tonic::{transport::Server, Request, Response, Status};
-use tokio_stream::wrappers::ReceiverStream;
-use vosk_tts_rs::{Model, Synth};
 use log::info;
 use std::env;
 use std::sync::{Arc, Mutex};
+use tokio_stream::wrappers::ReceiverStream;
+use tonic::{transport::Server, Request, Response, Status};
+use vosk_tts_rs::{Model, Synth};
 
 // gRPC service module - this would be generated from .proto file
 pub mod tts_service {
@@ -12,8 +12,7 @@ pub mod tts_service {
 
 use tts_service::{
     synthesizer_server::{Synthesizer, SynthesizerServer},
-    AudioChunk, AudioFormatOptions, UtteranceSynthesisRequest,
-    UtteranceSynthesisResponse,
+    AudioChunk, AudioFormatOptions, UtteranceSynthesisRequest, UtteranceSynthesisResponse,
 };
 
 pub struct SynthesizerServicer {
@@ -23,10 +22,16 @@ pub struct SynthesizerServicer {
 
 impl SynthesizerServicer {
     pub fn new(model_path: Option<&str>) -> anyhow::Result<Self> {
-        info!("Loading TTS model from {:?}", model_path.unwrap_or("default"));
+        info!(
+            "Loading TTS model from {:?}",
+            model_path.unwrap_or("default")
+        );
         let model = Model::new(model_path, None, Some("ru"))?;
         let synth = Synth::new();
-        Ok(SynthesizerServicer { model: Arc::new(Mutex::new(model)), synth })
+        Ok(SynthesizerServicer {
+            model: Arc::new(Mutex::new(model)),
+            synth,
+        })
     }
 }
 
@@ -80,30 +85,28 @@ impl Synthesizer for SynthesizerServicer {
                                     tts_service::RawAudio {
                                         data: chunk.to_vec(),
                                         sample_rate_hertz: 22050,
-                                    }
+                                    },
                                 )),
                             };
-                            
+
                             let response = UtteranceSynthesisResponse {
                                 audio_chunk: Some(AudioChunk {
                                     audio: Some(audio_options),
                                 }),
                             };
-                            
+
                             if tx.blocking_send(Ok(response)).is_err() {
                                 break;
                             }
                         }
-                        
+
                         // Clean up temp file
                         let _ = std::fs::remove_file(&temp_output);
                     }
                 }
                 Err(e) => {
-                    let _ = tx.blocking_send(Err(Status::internal(format!(
-                        "Synthesis error: {}",
-                        e
-                    ))));
+                    let _ =
+                        tx.blocking_send(Err(Status::internal(format!("Synthesis error: {}", e))));
                 }
             }
         });
@@ -113,8 +116,7 @@ impl Synthesizer for SynthesizerServicer {
 }
 
 pub async fn serve() -> anyhow::Result<()> {
-    let interface = env::var("VOSK_SERVER_INTERFACE")
-        .unwrap_or_else(|_| "0.0.0.0".to_string());
+    let interface = env::var("VOSK_SERVER_INTERFACE").unwrap_or_else(|_| "0.0.0.0".to_string());
     let port: u16 = env::var("VOSK_SERVER_PORT")
         .unwrap_or_else(|_| "5001".to_string())
         .parse()?;
@@ -144,9 +146,7 @@ pub async fn serve() -> anyhow::Result<()> {
 
 fn main() -> anyhow::Result<()> {
     env_logger::init();
-    
+
     let rt = tokio::runtime::Runtime::new()?;
-    rt.block_on(async {
-        serve().await
-    })
+    rt.block_on(async { serve().await })
 }
