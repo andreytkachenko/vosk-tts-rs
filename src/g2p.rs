@@ -326,8 +326,14 @@ mod tests {
     fn test_pallatize_soft_vowel_context() {
         // Consonant before soft vowel should be palatalized
         let mut phones = vec![
-            Phone { symbol: "н".to_string(), stress: 0 },
-            Phone { symbol: "я".to_string(), stress: 0 },
+            Phone {
+                symbol: "н".to_string(),
+                stress: 0,
+            },
+            Phone {
+                symbol: "я".to_string(),
+                stress: 0,
+            },
         ];
         pallatize(&mut phones);
         // 'н' before 'я' should become 'nj'
@@ -338,8 +344,14 @@ mod tests {
     fn test_pallatize_hard_vowel_context() {
         // Consonant before hard vowel should NOT be palatalized
         let mut phones = vec![
-            Phone { symbol: "н".to_string(), stress: 0 },
-            Phone { symbol: "а".to_string(), stress: 0 },
+            Phone {
+                symbol: "н".to_string(),
+                stress: 0,
+            },
+            Phone {
+                symbol: "а".to_string(),
+                stress: 0,
+            },
         ];
         pallatize(&mut phones);
         // 'н' before 'а' should remain 'n' (no 'j')
@@ -350,9 +362,18 @@ mod tests {
     fn test_pallatize_consonant_cluster() {
         // Two consonants - no palatalization
         let mut phones = vec![
-            Phone { symbol: "б".to_string(), stress: 0 },
-            Phone { symbol: "р".to_string(), stress: 0 },
-            Phone { symbol: "а".to_string(), stress: 0 },
+            Phone {
+                symbol: "б".to_string(),
+                stress: 0,
+            },
+            Phone {
+                symbol: "р".to_string(),
+                stress: 0,
+            },
+            Phone {
+                symbol: "а".to_string(),
+                stress: 0,
+            },
         ];
         pallatize(&mut phones);
         // 'б' before 'р' should be hard
@@ -363,8 +384,14 @@ mod tests {
     fn test_pallatize_other_consonants() {
         // Other consonants (ж, ц, ч, ш, щ, й) should be converted
         let mut phones = vec![
-            Phone { symbol: "ж".to_string(), stress: 0 },
-            Phone { symbol: "а".to_string(), stress: 0 },
+            Phone {
+                symbol: "ж".to_string(),
+                stress: 0,
+            },
+            Phone {
+                symbol: "а".to_string(),
+                stress: 0,
+            },
         ];
         pallatize(&mut phones);
         assert_eq!(phones[0].symbol, "zh");
@@ -373,9 +400,10 @@ mod tests {
     #[test]
     fn test_pallatize_last_phone_no_next() {
         // Last phone should not cause panic
-        let mut phones = vec![
-            Phone { symbol: "н".to_string(), stress: 0 },
-        ];
+        let mut phones = vec![Phone {
+            symbol: "н".to_string(),
+            stress: 0,
+        }];
         pallatize(&mut phones);
         // Should not crash, even though there's no next phone
         assert!(phones.len() == 1);
@@ -387,9 +415,10 @@ mod tests {
 
     #[test]
     fn test_convert_vowels_basic() {
-        let phones = vec![
-            Phone { symbol: "а".to_string(), stress: 1 },
-        ];
+        let phones = vec![Phone {
+            symbol: "а".to_string(),
+            stress: 1,
+        }];
         let result = convert_vowels(&phones);
         assert_eq!(result[0], "a1");
     }
@@ -398,8 +427,14 @@ mod tests {
     fn test_convert_vowels_yotated_after_start_syl() {
         // Yotated vowel after start syllable should get 'j' prefix
         let phones = vec![
-            Phone { symbol: "#".to_string(), stress: 0 },
-            Phone { symbol: "я".to_string(), stress: 1 },
+            Phone {
+                symbol: "#".to_string(),
+                stress: 0,
+            },
+            Phone {
+                symbol: "я".to_string(),
+                stress: 1,
+            },
         ];
         let result = convert_vowels(&phones);
         // Should contain 'j' before vowel
@@ -410,8 +445,14 @@ mod tests {
     #[test]
     fn test_convert_vowels_stressed() {
         let phones = vec![
-            Phone { symbol: "о".to_string(), stress: 1 },
-            Phone { symbol: "н".to_string(), stress: 0 },
+            Phone {
+                symbol: "о".to_string(),
+                stress: 1,
+            },
+            Phone {
+                symbol: "н".to_string(),
+                stress: 0,
+            },
         ];
         let result = convert_vowels(&phones);
         assert_eq!(result[0], "o1");
@@ -419,9 +460,10 @@ mod tests {
 
     #[test]
     fn test_convert_vowels_unstressed() {
-        let phones = vec![
-            Phone { symbol: "о".to_string(), stress: 0 },
-        ];
+        let phones = vec![Phone {
+            symbol: "о".to_string(),
+            stress: 0,
+        }];
         let result = convert_vowels(&phones);
         assert_eq!(result[0], "o0");
     }
@@ -429,9 +471,10 @@ mod tests {
     #[test]
     fn test_convert_vowels_y() {
         // ы -> y
-        let phones = vec![
-            Phone { symbol: "ы".to_string(), stress: 0 },
-        ];
+        let phones = vec![Phone {
+            symbol: "ы".to_string(),
+            stress: 0,
+        }];
         let result = convert_vowels(&phones);
         assert_eq!(result[0], "y0");
     }
@@ -439,9 +482,10 @@ mod tests {
     #[test]
     fn test_convert_vowels_e_to_e() {
         // е -> e
-        let phones = vec![
-            Phone { symbol: "е".to_string(), stress: 0 },
-        ];
+        let phones = vec![Phone {
+            symbol: "е".to_string(),
+            stress: 0,
+        }];
         let result = convert_vowels(&phones);
         assert_eq!(result[0], "e0");
     }
@@ -449,9 +493,10 @@ mod tests {
     #[test]
     fn test_convert_vowels_consonant_unchanged() {
         // Consonants should remain unchanged
-        let phones = vec![
-            Phone { symbol: "n".to_string(), stress: 0 },
-        ];
+        let phones = vec![Phone {
+            symbol: "n".to_string(),
+            stress: 0,
+        }];
         let result = convert_vowels(&phones);
         assert_eq!(result[0], "n");
     }

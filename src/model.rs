@@ -525,12 +525,12 @@ mod tests {
     fn test_phoneme_id_value_in_hashmap() {
         let json = r#"{"a": 1, "b": [2, 3]}"#;
         let result: HashMap<String, PhonemeIdValue> = serde_json::from_str(json).unwrap();
-        
+
         match result.get("a").unwrap() {
             PhonemeIdValue::Single(val) => assert_eq!(*val, 1),
             _ => panic!("Expected Single for 'a'"),
         }
-        
+
         match result.get("b").unwrap() {
             PhonemeIdValue::Multiple(vals) => assert_eq!(*vals, vec![2, 3]),
             _ => panic!("Expected Multiple for 'b'"),
@@ -545,7 +545,7 @@ mod tests {
     fn test_inference_config_defaults() {
         let json = r#"{}"#;
         let config: InferenceConfig = serde_json::from_str(json).unwrap();
-        
+
         assert!((config.noise_level - 0.8).abs() < f32::EPSILON);
         assert!((config.speech_rate - 1.0).abs() < f32::EPSILON);
         assert!((config.duration_noise_level - 0.8).abs() < f32::EPSILON);
@@ -561,7 +561,7 @@ mod tests {
             "scale": 0.9
         }"#;
         let config: InferenceConfig = serde_json::from_str(json).unwrap();
-        
+
         assert!((config.noise_level - 0.5).abs() < f32::EPSILON);
         assert!((config.speech_rate - 1.2).abs() < f32::EPSILON);
         assert!((config.duration_noise_level - 0.6).abs() < f32::EPSILON);
@@ -572,7 +572,7 @@ mod tests {
     fn test_inference_config_partial_defaults() {
         let json = r#"{"noise_level": 0.3}"#;
         let config: InferenceConfig = serde_json::from_str(json).unwrap();
-        
+
         assert!((config.noise_level - 0.3).abs() < f32::EPSILON);
         assert!((config.speech_rate - 1.0).abs() < f32::EPSILON); // default
         assert!((config.duration_noise_level - 0.8).abs() < f32::EPSILON); // default
@@ -593,7 +593,7 @@ mod tests {
             "num_speakers": 1
         }"#;
         let config: ModelConfig = serde_json::from_str(json).unwrap();
-        
+
         assert_eq!(config.audio.sample_rate, 24000);
         assert_eq!(config.num_symbols, 100);
         assert_eq!(config.num_speakers, 1);
@@ -615,7 +615,7 @@ mod tests {
             "no_blank": 1
         }"#;
         let config: ModelConfig = serde_json::from_str(json).unwrap();
-        
+
         assert_eq!(config.audio.sample_rate, 48000);
         assert!((config.inference.noise_level - 0.5).abs() < f32::EPSILON);
         assert!((config.inference.speech_rate - 1.1).abs() < f32::EPSILON);
@@ -714,7 +714,7 @@ mod tests {
             "obsolete": "false"
         }"#;
         let info: ModelInfo = serde_json::from_str(json).unwrap();
-        
+
         assert_eq!(info.name, "vosk-model-tts-ru");
         assert_eq!(info.lang, "ru");
         assert_eq!(info.model_type, "small");
@@ -728,7 +728,7 @@ mod tests {
             {"name": "model2", "lang": "en", "type": "large", "obsolete": "true"}
         ]"#;
         let infos: Vec<ModelInfo> = serde_json::from_str(json).unwrap();
-        
+
         assert_eq!(infos.len(), 2);
         assert_eq!(infos[0].name, "model1");
         assert_eq!(infos[1].lang, "en");
@@ -778,7 +778,7 @@ mod tests {
 
         let line = "мир 0.9 m' i r";
         let parts: Vec<&str> = line.splitn(3, char::is_whitespace).collect();
-        
+
         if parts.len() >= 3 {
             let word = parts[0];
             let prob: f32 = parts[1].parse().unwrap_or(0.0);
@@ -829,7 +829,7 @@ mod tests {
 
         let line = "word not_a_number phonemes";
         let parts: Vec<&str> = line.splitn(3, char::is_whitespace).collect();
-        
+
         if parts.len() >= 3 {
             let word = parts[0];
             let prob: f32 = parts[1].parse().unwrap_or(0.0); // Should default to 0.0
