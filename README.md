@@ -1,6 +1,6 @@
 # Vosk TTS Rust
 
-[![CI](https://github.com/alphacep/vosk-tts-rs/workflows/CI/badge.svg)](https://github.com/alphacep/vosk-tts-rs/actions)
+[![CI](https://github.com/andreytkachenko/vosk-tts-rs/workflows/CI/badge.svg)](https://github.com/andreytkachenko/vosk-tts-rs/actions)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/rust-1.70%2B-blue.svg)](https://www.rust-lang.org/)
 
@@ -168,18 +168,18 @@ cargo fmt
 ## Differences from Python Version
 
 ### Implemented
-✅ Model loading and downloading
-✅ Dictionary parsing
-✅ G2P conversion (Russian)
-✅ WAV file generation
-✅ gRPC server/client
-✅ CLI interface
-✅ BERT tokenizer integration (placeholder)
-✅ Full ONNX inference with proper tensor handling
-✅ All multistream G2P variants with embeddings
+- ✅ Model loading and downloading
+- ✅ Dictionary parsing
+- ✅ G2P conversion (Russian)
+- ✅ WAV file generation
+- ✅ gRPC server/client
+- ✅ CLI interface
+- ✅ BERT tokenizer integration
+- ✅ Full ONNX inference with proper tensor handling
+- ✅ All multistream G2P variants with embeddings
 
 ### Simplified (TODO)
-⏳ Complete prosody modeling
+- ⏳ Complete prosody modeling
 
 ### Rust-Specific Improvements
 - **Type Safety**: Strong typing throughout
