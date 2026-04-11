@@ -1,10 +1,8 @@
-use std::collections::HashMap;
 use std::fs;
 
 use vosk_tts_rs::{Model, Synth};
 
 fn dump_array(name: &str, data: &[f32], shape: &[usize]) {
-    let total: usize = shape.iter().product();
     let n_show = 50.min(data.len());
     let vals_str: Vec<String> = data[..n_show].iter().map(|x| format!("{:.6}", x)).collect();
     let min = data.iter().cloned().fold(f32::INFINITY, f32::min);
@@ -64,7 +62,7 @@ fn main() {
 
     // Show phoneme_id_map
     println!("\nPhoneme ID map (first 30 entries):");
-    for (i, (k, v)) in model.config.phoneme_id_map.iter().take(30).enumerate() {
+    for (k, v) in model.config.phoneme_id_map.iter().take(30) {
         println!("  '{}' -> {:?}", k, v);
     }
 

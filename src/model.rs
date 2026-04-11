@@ -249,7 +249,7 @@ impl Model {
         let mut bert_session = bert_session_ref.borrow_mut();
 
         // Encode text
-        let text_clean = text.replace('+', "").replace('_', "");
+        let text_clean = text.replace(['+', '_'], "");
         let encoding = tokenizer.encode(text_clean.as_str(), true).ok()?;
         let ids: Vec<i64> = encoding.get_ids().iter().map(|&x| x as i64).collect();
         let attention_mask: Vec<i64> = encoding

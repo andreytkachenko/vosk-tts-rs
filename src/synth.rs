@@ -116,6 +116,7 @@ impl Synth {
     }
 
     /// Synthesize audio from text
+    #[allow(clippy::too_many_arguments)]
     pub fn synth_audio(
         &self,
         model: &mut Model,
@@ -164,7 +165,7 @@ impl Synth {
 
         // Assign first voice
         let speaker_id = speaker_id.unwrap_or(0);
-        let sid = vec![speaker_id as i64];
+        let sid = vec![speaker_id];
 
         // Build input tensors for ONNX
         let input_tensor = Value::from_array(
@@ -211,7 +212,7 @@ impl Synth {
             .map_err(|e| anyhow::anyhow!("Failed to extract audio tensor: {}", e))?;
 
         // audio_data may have shape (1, T_audio) or (T_audio,) - flatten and scale
-        let audio_data_vec: Vec<f32> = audio_data.iter().copied().collect();
+        let audio_data_vec: Vec<f32> = audio_data.to_vec();
         let audio_scaled: Vec<f32> = audio_data_vec.iter().map(|&x| x * scale).collect();
 
         // Convert to int16
@@ -593,6 +594,7 @@ impl Synth {
 
         // Transpose: from [T][768] to [768][T]
         let mut bert_data = Vec::with_capacity(t * hidden_size);
+        #[allow(clippy::needless_range_loop)]
         for ch in 0..hidden_size {
             for phoneme in 0..t {
                 bert_data.push(bert_raw[phoneme][ch]);
@@ -790,6 +792,8 @@ impl Synth {
 
         // Transpose: from [T][768] to [768][T]
         let mut bert_data = Vec::with_capacity(t * hidden_size);
+
+        #[allow(clippy::needless_range_loop)]
         for ch in 0..hidden_size {
             for phoneme in 0..t {
                 bert_data.push(bert_raw[phoneme][ch]);
@@ -843,6 +847,7 @@ impl Synth {
 
         let mut phoneme_ids: Vec<i64> = Vec::new();
 
+        #[allow(clippy::needless_range_loop)]
         if is_list_mapping {
             // Each phoneme maps to multiple IDs, blanks (single 0) between groups
             phoneme_ids.extend(&first_ids);
@@ -919,6 +924,7 @@ impl Synth {
     }
 
     /// Write synthesized audio to WAV file
+    #[allow(clippy::too_many_arguments)]
     pub fn synth(
         &self,
         model: &mut Model,
@@ -955,5 +961,11 @@ impl Synth {
         writer.finalize()?;
 
         Ok(())
+    }
+}
+
+impl Default for Synth {
+    fn default() -> Self {
+        Self::new()
     }
 }

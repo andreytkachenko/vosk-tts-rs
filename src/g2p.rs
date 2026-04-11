@@ -51,7 +51,7 @@ struct Phone {
     stress: i32,
 }
 
-fn pallatize(phones: &mut Vec<Phone>) {
+fn pallatize(phones: &mut [Phone]) {
     let soft_letters: HashSet<char> = SOFT_LETTERS.chars().collect();
 
     for i in 0..phones.len().saturating_sub(1) {
