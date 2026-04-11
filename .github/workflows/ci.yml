@@ -103,9 +103,9 @@ jobs:
       - name: Install protoc (Linux)
         if: matrix.os == 'ubuntu-latest'
         run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
-      - name: Install protoc (Windows)
-        if: matrix.os == 'windows-latest'
-        run: choco install protoc
+      # - name: Install protoc (Windows)
+      #   if: matrix.os == 'windows-latest'
+      #   run: choco install protoc
       - name: Install protoc (macOS)
         if: matrix.os == 'macos-latest'
         run: brew install protobuf
@@ -132,15 +132,15 @@ jobs:
             target/release/vosk-tts-rs
             target/release/vosk-tts-server-rs
             target/release/vosk-tts-client-rs
-      - name: Upload artifacts (Windows)
-        if: matrix.os == 'windows-latest'
-        uses: actions/upload-artifact@v4
-        with:
-          name: vosk-tts-rs-windows
-          path: |
-            target/release/vosk-tts-rs.exe
-            target/release/vosk-tts-server-rs.exe
-            target/release/vosk-tts-client-rs.exe
+      # - name: Upload artifacts (Windows)
+      #   if: matrix.os == 'windows-latest'
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: vosk-tts-rs-windows
+      #     path: |
+      #       target/release/vosk-tts-rs.exe
+      #       target/release/vosk-tts-server-rs.exe
+      #       target/release/vosk-tts-client-rs.exe
       - name: Upload artifacts (macOS)
         if: matrix.os == 'macos-latest'
         uses: actions/upload-artifact@v4
