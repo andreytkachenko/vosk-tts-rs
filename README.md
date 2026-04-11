@@ -1,5 +1,9 @@
 # Vosk TTS Rust
 
+[![CI](https://github.com/alphacep/vosk-tts-rs/workflows/CI/badge.svg)](https://github.com/alphacep/vosk-tts-rs/actions)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
+[![Rust](https://img.shields.io/badge/rust-1.70%2B-blue.svg)](https://www.rust-lang.org/)
+
 Rust version of Vosk TTS - Offline Text-to-Speech System based on VITS architecture with ONNX Runtime inference.
 
 ## Features
