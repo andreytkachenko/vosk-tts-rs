@@ -1,0 +1,40 @@
+syntax = "proto3";
+
+package tts_service;
+
+message AudioFormatOptions {
+  oneof audio {
+    RawAudio raw_audio = 1;
+  }
+}
+
+message RawAudio {
+  bytes data = 1;
+  int32 sample_rate_hertz = 2;
+}
+
+message AudioChunk {
+  AudioFormatOptions audio = 1;
+}
+
+message UtteranceSynthesisRequest {
+  string text = 1;
+  optional int32 speaker_id = 2;
+  optional float speech_rate = 3;
+  optional float duration_noise_level = 4;
+  optional float noise_level = 5;
+  optional float scale = 6;
+  optional SynthesisHints hints = 7;
+}
+
+message SynthesisHints {
+  optional string role = 1;
+}
+
+message UtteranceSynthesisResponse {
+  AudioChunk audio_chunk = 1;
+}
+
+service Synthesizer {
+  rpc UtteranceSynthesis(UtteranceSynthesisRequest) returns (stream UtteranceSynthesisResponse);
+}
