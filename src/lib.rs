@@ -1,3 +1,4 @@
+pub mod fst_dict;
 pub mod g2p;
 pub mod model;
 pub mod synth;

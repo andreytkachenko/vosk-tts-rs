@@ -45,6 +45,10 @@ dirs = "5.0"
 # Regex
 regex = "1.11"
 
+# FST for fast dictionary lookup
+fst = "0.4"
+memmap2 = "0.9"
+
 # gRPC (tonic)
 tonic = "0.12"
 prost = "0.13"
@@ -61,6 +65,9 @@ num_cpus = "1.16"
 
 [build-dependencies]
 tonic-build = "0.12"
+
+[dev-dependencies]
+tempfile = "3"
 
 [lib]
 name = "vosk_tts_rs"

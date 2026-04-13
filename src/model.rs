@@ -1,3 +1,5 @@
+use crate::fst_dict::FstDictionary;
+
 use anyhow::{Context, Result};
 use log::info;
 use ndarray::ArrayD;
@@ -128,7 +130,7 @@ pub struct ModelConfig {
 
 pub struct Model {
     pub onnx: Session,
-    pub dic: HashMap<String, String>,
+    pub dic: FstDictionary,
     pub config: ModelConfig,
     pub tokenizer: Option<Tokenizer>,
     pub bert_onnx: Option<RefCell<Session>>,
@@ -203,31 +205,104 @@ impl Model {
         })
     }
 
-    fn load_dictionary(model_path: &Path) -> Result<HashMap<String, String>> {
-        let mut dic = HashMap::new();
-        let mut probs: HashMap<String, f32> = HashMap::new();
-
-        let dict_path = model_path.join("dictionary");
-        let content = fs::read_to_string(&dict_path)
-            .context(format!("Failed to read dictionary from {:?}", dict_path))?;
-
-        for line in content.lines() {
-            let parts: Vec<&str> = line.splitn(3, char::is_whitespace).collect();
-
-            if parts.len() >= 3 {
-                let word = parts[0];
-                let prob: f32 = parts[1].parse().unwrap_or(0.0);
-                let phonemes = parts[2];
-
-                let current_prob = probs.get(word).copied().unwrap_or(0.0);
-                if prob > current_prob {
-                    dic.insert(word.to_string(), phonemes.to_string());
-                    probs.insert(word.to_string(), prob);
-                }
+    fn load_dictionary(model_path: &Path) -> Result<FstDictionary> {
+        // Try FST dictionary first
+        if model_path.join("dictionary.fst").exists() && model_path.join("dictionary").exists() {
+            info!("Loading FST dictionary from {}", model_path.display());
+            let dict = FstDictionary::from_dir(model_path)
+                .map_err(|e| anyhow::anyhow!("Failed to load FST dictionary: {}", e))?;
+            info!("FST dictionary loaded: {} entries", dict.len());
+            Ok(dict)
+        } else {
+            // Fallback: build FST from raw dictionary file
+            info!(
+                "FST dictionary not found, building from raw dictionary at {}",
+                model_path.display()
+            );
+            let raw_dict_path = model_path.join("dictionary");
+            if !raw_dict_path.exists() {
+                return Err(anyhow::anyhow!(
+                    "Dictionary file not found at {:?}",
+                    raw_dict_path
+                ));
             }
-        }
 
-        Ok(dic)
+            // Build FST in-memory and save to temp files in model directory
+            use std::collections::BTreeMap;
+            use std::io::{BufRead, BufReader, BufWriter, Write};
+
+            let file = fs::File::open(&raw_dict_path).context("Failed to open raw dictionary")?;
+            let reader = BufReader::new(file);
+
+            let mut word_entries: BTreeMap<String, Vec<String>> = BTreeMap::new();
+            for line in reader.lines() {
+                let line = line.context("Failed to read line")?;
+                let line = line.trim().to_string();
+                if line.is_empty() {
+                    continue;
+                }
+
+                let parts: Vec<&str> = line.splitn(2, ' ').collect();
+                if parts.len() < 2 {
+                    continue;
+                }
+
+                let word = parts[0].to_string();
+                let rest = parts[1];
+                let phonemes: Vec<&str> = rest.split_whitespace().skip(1).collect();
+                let phoneme_str = phonemes.join(" ");
+
+                word_entries.entry(word).or_default().push(phoneme_str);
+            }
+
+            info!(
+                "Parsed {} unique words from raw dictionary",
+                word_entries.len()
+            );
+
+            // Build FST files
+            let fst_path = model_path.join("dictionary.fst");
+            let phonemes_path = model_path.join("dictionary.phonemes");
+
+            let phonemes_file =
+                fs::File::create(&phonemes_path).context("Failed to create phonemes file")?;
+            let mut phonemes_writer = BufWriter::new(phonemes_file);
+
+            let mut current_offset: u64 = 0;
+            let fst_file = fs::File::create(&fst_path).context("Failed to create FST file")?;
+            let mut fst_builder =
+                fst::MapBuilder::new(fst_file).context("Failed to create FST builder")?;
+
+            for (word, pronunciations) in &word_entries {
+                let combined = pronunciations.join("\0");
+                let bytes = combined.as_bytes();
+                let len = bytes.len() as u64;
+
+                phonemes_writer
+                    .write_all(bytes)
+                    .context("Failed to write phonemes")?;
+                phonemes_writer
+                    .write_all(&[0])
+                    .context("Failed to write terminator")?;
+
+                let encoded_value = (current_offset << 32) | (len + 1);
+                fst_builder
+                    .insert(word.as_bytes(), encoded_value)
+                    .context("Failed to insert into FST")?;
+
+                current_offset += len + 1;
+            }
+
+            phonemes_writer
+                .flush()
+                .context("Failed to flush phonemes file")?;
+            fst_builder.finish().context("Failed to finish FST")?;
+
+            info!("Built FST dictionary: {} entries", word_entries.len());
+
+            FstDictionary::from_dir(model_path)
+                .map_err(|e| anyhow::anyhow!("Failed to load built FST dictionary: {}", e))
+        }
     }
 
     fn load_config(model_path: &Path) -> Result<ModelConfig> {
@@ -737,6 +812,7 @@ mod tests {
     // ========================================================================
     // Tests for dictionary loading logic (simulated)
     // ========================================================================
+    use std::collections::HashMap;
 
     #[test]
     fn test_dictionary_priority_selection() {
