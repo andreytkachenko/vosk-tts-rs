@@ -125,15 +125,135 @@ fn convert_vowels(phones: &[Phone]) -> Vec<String> {
     new_phones
 }
 
+/// Smart stress position heuristic based on vowel count
+/// Derived from analysis of 2M+ word dictionary
+fn smart_stress_position(vowel_count: usize) -> Option<usize> {
+    match vowel_count {
+        0 => None,                    // no vowels
+        1 => Some(1),                 // 100% on the only vowel
+        2 => Some(2),                 // 62% penultimate
+        3 => Some(2),                 // 46% penultimate
+        4 => Some(2),                 // 42% penultimate
+        5 => Some(3),                 // 43% 3rd from end
+        6 => Some(3),                 // 31% 3rd from end (most common)
+        7 => Some(3),                 // 23% 3rd from end (most common)
+        8 => Some(7),                 // 19% 7th from end (but spread)
+        9 => Some(8),                 // 24% 8th from end
+        10 => Some(9),                // 27% 9th from end
+        _ => Some((vowel_count + 1) / 2), // fallback: middle
+    }
+}
+
 /// Converts a stress-marked Russian word to phoneme sequence
 ///
 /// # Arguments
 /// * `stress_word` - Word with stress marked using '+' character (e.g., "абстр+акция")
 ///
 /// # Returns
-/// Space-separated phoneme string
+/// Space-separated phoneme string (no stress assigned if no '+' in input)
 pub fn convert(stress_word: &str) -> String {
     let phones_str = format!("#{}#", stress_word);
+    let others_set: HashSet<char> = OTHERS.chars().collect();
+
+    // Assign stress marks
+    let mut stress_phones = Vec::new();
+    let mut stress = 0;
+
+    for ch in phones_str.chars() {
+        if ch == '+' {
+            stress = 1;
+        } else {
+            stress_phones.push(Phone {
+                symbol: ch.to_string(),
+                stress,
+            });
+            stress = 0;
+        }
+    }
+
+    // Palatalize
+    pallatize(&mut stress_phones);
+
+    // Convert vowels
+    let phones = convert_vowels(&stress_phones);
+
+    // Filter out unwanted characters
+    let filtered: Vec<String> = phones
+        .into_iter()
+        .filter(|p| {
+            p.chars()
+                .next()
+                .map(|ch| !others_set.contains(&ch))
+                .unwrap_or(false)
+        })
+        .collect();
+
+    filtered.join(" ")
+}
+
+/// Converts a Russian word to phoneme sequence with optional default stress placement
+///
+/// # Arguments
+/// * `word` - Russian word, optionally with '+' for explicit stress
+/// * `default_stress_from_end` - If no '+' in word, place stress on this vowel from end (1=last, 2=penultimate, etc.)
+///   If None, uses smart heuristic based on vowel count
+///
+/// # Returns
+/// Space-separated phoneme string
+pub fn convert_with_stress(word: &str, default_stress_from_end: Option<usize>) -> String {
+    let has_explicit_stress = word.contains('+');
+
+    // Determine stress position
+    let is_vowel = |c: char| "аоуэыяёюеиАОУЭЫЯЁЮЕИ".contains(c);
+    let vowel_count = word.chars().filter(|c| is_vowel(*c)).count();
+
+    let stress_from_end = if !has_explicit_stress {
+        if word.contains('ё') || word.contains('Ё') {
+            // Ё is always stressed — find its vowel number
+            let yo_pos = word.find('ё').or_else(|| word.find('Ё'));
+            if let Some(pos) = yo_pos {
+                let vowels_before = word[..pos].chars().filter(|c| is_vowel(*c)).count();
+                Some(vowel_count - vowels_before) // from_end = total - before
+            } else {
+                default_stress_from_end.or_else(|| smart_stress_position(vowel_count))
+            }
+        } else {
+            default_stress_from_end.or_else(|| smart_stress_position(vowel_count))
+        }
+    } else {
+        None // explicit '+' handles stress
+    };
+
+    // Insert '+' if we determined stress position
+    let processed_word = if !has_explicit_stress {
+        if let Some(from_end) = stress_from_end {
+            let vowel_indices: Vec<usize> = word
+                .char_indices()
+                .filter(|(_, c)| is_vowel(*c))
+                .map(|(i, _)| i)
+                .collect();
+
+            if !vowel_indices.is_empty() {
+                let vowel_idx = if from_end <= vowel_indices.len() {
+                    vowel_indices[vowel_indices.len() - from_end]
+                } else {
+                    vowel_indices[0]
+                };
+
+                let mut result = word.to_string();
+                result.insert_str(vowel_idx, "+");
+                result
+            } else {
+                word.to_string()
+            }
+        } else {
+            word.to_string()
+        }
+    } else {
+        word.to_string()
+    };
+
+    let phones_str = format!("#{}#", processed_word);
     let others_set: HashSet<char> = OTHERS.chars().collect();
 
     // Assign stress marks

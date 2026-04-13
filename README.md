@@ -185,7 +185,7 @@ cargo fmt
 - **Type Safety**: Strong typing throughout
 - **Memory Safety**: No undefined behavior
 - **Concurrency**: Thread-safe design
-- **Performance**: Optimized release builds (~33MB binary)
+- **Performance**: Optimized release builds (~36MB binary)
 - **Error Handling**: `anyhow` for flexible errors
 
 ## Dependencies
