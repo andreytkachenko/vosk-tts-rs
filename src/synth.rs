@@ -263,7 +263,7 @@ impl Synth {
             if re.is_match(word) || word == "-" {
                 phonemes.push(word.to_string());
                 word_indices.push(word_index);
-            } else if let Some(phoneme_str) = model.dic.get(word) {
+            } else if let Some(phoneme_str) = model.dic.lookup_first(word) {
                 for p in phoneme_str.split_whitespace() {
                     phonemes.push(p.to_string());
                     word_indices.push(word_index);
@@ -358,7 +358,7 @@ impl Synth {
             if re.is_match(word) || word == "-" {
                 phonemes.push(word.to_string());
                 word_indices.push(word_index);
-            } else if let Some(phoneme_str) = model.dic.get(word) {
+            } else if let Some(phoneme_str) = model.dic.lookup_first(word) {
                 for p in phoneme_str.split_whitespace() {
                     phonemes.push(p.to_string());
                     word_indices.push(word_index);
@@ -470,7 +470,7 @@ impl Synth {
             }
 
             let word_phonemes_raw =
-                if let Some(dic_entry) = model.dic.get(word.to_lowercase().as_str()) {
+                if let Some(dic_entry) = model.dic.lookup_first(word.to_lowercase().as_str()) {
                     dic_entry
                         .split_whitespace()
                         .map(String::from)
@@ -668,7 +668,7 @@ impl Synth {
             }
 
             let word_lower = word.to_lowercase();
-            let word_phonemes_raw = if let Some(dic_entry) = model.dic.get(word_lower.as_str()) {
+            let word_phonemes_raw = if let Some(dic_entry) = model.dic.lookup_first(word_lower.as_str()) {
                 dic_entry
                     .split_whitespace()
                     .map(String::from)
@@ -827,7 +827,7 @@ impl Synth {
 
             if re.is_match(word) || word == "-" {
                 phonemes.push(word.to_string());
-            } else if let Some(phoneme_str) = model.dic.get(word) {
+            } else if let Some(phoneme_str) = model.dic.lookup_first(word) {
                 for p in phoneme_str.split_whitespace() {
                     phonemes.push(p.to_string());
                 }
