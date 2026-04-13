@@ -2,6 +2,7 @@ use clap::Parser;
 use log::info;
 use std::fs::File;
 use std::io::Write;
+use vosk_tts_rs::Error;
 
 // Include the generated proto module
 mod tts_service {
@@ -38,7 +39,7 @@ struct Args {
 }
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() -> std::result::Result<(), Error> {
     env_logger::init();
 
     let args = Args::parse();
@@ -49,7 +50,7 @@ async fn main() -> anyhow::Result<()> {
     // Create gRPC client
     let mut client = SynthesizerClient::connect(args.server.clone())
         .await
-        .map_err(|e| anyhow::anyhow!("Failed to connect to server: {}", e))?;
+        .map_err(|e| Error::ConnectionFailed(e.to_string()))?;
 
     let request = tonic::Request::new(UtteranceSynthesisRequest {
         text: args.text.clone(),

@@ -3,7 +3,9 @@ name = "vosk-tts-rs"
 version = "0.1.0"
 edition = "2021"
 description = "Rust version of Vosk TTS - Offline Text-to-Speech System"
-authors = ["Vosk TTS"]
+repository = "https://github.com/andreytkachenko/vosk-tts-rs.git"
+license-file = "LICENSE"
+authors = ["andrey@iadev.ru", "Alpha Cephei Inc"]
 
 [dependencies]
 # ONNX Runtime for inference
@@ -37,7 +39,6 @@ tokio = { version = "1.41", features = ["full"] }
 
 # Error handling
 thiserror = "2.0"
-anyhow = "1.0"
 
 # Path handling
 dirs = "5.0"

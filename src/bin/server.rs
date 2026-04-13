@@ -3,7 +3,7 @@ use std::env;
 use std::sync::{Arc, Mutex};
 use tokio_stream::wrappers::ReceiverStream;
 use tonic::{transport::Server, Request, Response, Status};
-use vosk_tts_rs::{Model, Synth};
+use vosk_tts_rs::{Error, Model, Synth};
 
 // gRPC service module - this would be generated from .proto file
 pub mod tts_service {
@@ -21,7 +21,7 @@ pub struct SynthesizerServicer {
 }
 
 impl SynthesizerServicer {
-    pub fn new(model_path: Option<&str>) -> anyhow::Result<Self> {
+    pub fn new(model_path: Option<&str>) -> std::result::Result<Self, Error> {
         info!(
             "Loading TTS model from {:?}",
             model_path.unwrap_or("default")
@@ -115,7 +115,7 @@ impl Synthesizer for SynthesizerServicer {
     }
 }
 
-pub async fn serve() -> anyhow::Result<()> {
+pub async fn serve() -> std::result::Result<(), Error> {
     let interface = env::var("VOSK_SERVER_INTERFACE").unwrap_or_else(|_| "0.0.0.0".to_string());
     let port: u16 = env::var("VOSK_SERVER_PORT")
         .unwrap_or_else(|_| "5001".to_string())
@@ -125,9 +125,7 @@ pub async fn serve() -> anyhow::Result<()> {
         .unwrap_or_else(|_| num_cpus::get().to_string())
         .parse()?;
 
-    let addr = format!("{}:{}", interface, port)
-        .parse()
-        .map_err(|e| anyhow::anyhow!("Invalid address: {}", e))?;
+    let addr = format!("{}:{}", interface, port).parse()?;
 
     info!(
         "Starting TTS server on {}:{} with {} threads",
@@ -144,7 +142,7 @@ pub async fn serve() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn main() -> anyhow::Result<()> {
+fn main() -> std::result::Result<(), Error> {
     env_logger::init();
 
     let rt = tokio::runtime::Runtime::new()?;

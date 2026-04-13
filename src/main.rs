@@ -1,8 +1,7 @@
-use anyhow::Result;
 use clap::Parser;
 use log::info;
 use std::fs;
-use vosk_tts_rs::{list_languages, list_models, Model, Synth};
+use vosk_tts_rs::{list_languages, list_models, Error, Model, Synth};
 
 #[derive(Parser, Debug)]
 #[command(name = "vosk-tts-rs")]
@@ -45,7 +44,7 @@ struct Args {
     output: String,
 }
 
-fn main() -> Result<()> {
+fn main() -> std::result::Result<(), Error> {
     env_logger::init();
 
     let args = Args::parse();

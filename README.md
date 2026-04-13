@@ -186,7 +186,7 @@ cargo fmt
 - **Memory Safety**: No undefined behavior
 - **Concurrency**: Thread-safe design
 - **Performance**: Optimized release builds (~33MB binary)
-- **Error Handling**: `anyhow` for flexible errors
+- **Error Handling**: `thiserror` for type-safe errors
 
 ## Dependencies
 

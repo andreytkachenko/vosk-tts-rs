@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use crate::error::{Error, Result};
 use log::info;
 use ndarray::ArrayD;
 use ort::session::Session;
@@ -67,7 +67,7 @@ pub enum PhonemeIdValue {
 }
 
 impl<'de> Deserialize<'de> for PhonemeIdValue {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
@@ -80,21 +80,21 @@ impl<'de> Deserialize<'de> for PhonemeIdValue {
                 formatter.write_str("an integer or a list of integers")
             }
 
-            fn visit_i64<E>(self, value: i64) -> Result<PhonemeIdValue, E>
+            fn visit_i64<E>(self, value: i64) -> std::result::Result<PhonemeIdValue, E>
             where
                 E: de::Error,
             {
                 Ok(PhonemeIdValue::Single(value))
             }
 
-            fn visit_u64<E>(self, value: u64) -> Result<PhonemeIdValue, E>
+            fn visit_u64<E>(self, value: u64) -> std::result::Result<PhonemeIdValue, E>
             where
                 E: de::Error,
             {
                 Ok(PhonemeIdValue::Single(value as i64))
             }
 
-            fn visit_seq<A>(self, mut seq: A) -> Result<PhonemeIdValue, A::Error>
+            fn visit_seq<A>(self, mut seq: A) -> std::result::Result<PhonemeIdValue, A::Error>
             where
                 A: de::SeqAccess<'de>,
             {
@@ -150,7 +150,7 @@ impl Model {
         // Load ONNX model
         let onnx = Session::builder()?
             .commit_from_file(model_path.join("model.onnx"))
-            .context("Failed to load ONNX model")?;
+            .map_err(Error::OnnxModelLoad)?;
 
         // Load dictionary
         let dic = Self::load_dictionary(&model_path)?;
@@ -170,7 +170,7 @@ impl Model {
                 .unk_token("[UNK]".to_string())
                 .continuing_subword_prefix("##".to_string())
                 .build()
-                .map_err(|e| anyhow::anyhow!("Failed to build WordPiece tokenizer: {}", e))?;
+                .map_err(|e| Error::TokenizerBuild(e.to_string()))?;
             let mut tokenizer = Tokenizer::new(wp);
 
             // Add whitespace pre-tokenizer (like BERT)
@@ -208,8 +208,10 @@ impl Model {
         let mut probs: HashMap<String, f32> = HashMap::new();
 
         let dict_path = model_path.join("dictionary");
-        let content = fs::read_to_string(&dict_path)
-            .context(format!("Failed to read dictionary from {:?}", dict_path))?;
+        let content = fs::read_to_string(&dict_path).map_err(|e| Error::DictionaryRead {
+            path: dict_path.to_string_lossy().to_string(),
+            source: e,
+        })?;
 
         for line in content.lines() {
             let parts: Vec<&str> = line.splitn(3, char::is_whitespace).collect();
@@ -232,11 +234,12 @@ impl Model {
 
     fn load_config(model_path: &Path) -> Result<ModelConfig> {
         let config_path = model_path.join("config.json");
-        let content = fs::read_to_string(&config_path)
-            .context(format!("Failed to read config from {:?}", config_path))?;
+        let content = fs::read_to_string(&config_path).map_err(|e| Error::ConfigRead {
+            path: config_path.to_string_lossy().to_string(),
+            source: e,
+        })?;
 
-        let config: ModelConfig =
-            serde_json::from_str(&content).context("Failed to parse config.json")?;
+        let config: ModelConfig = serde_json::from_str(&content).map_err(Error::ConfigParse)?;
 
         Ok(config)
     }
@@ -377,7 +380,7 @@ impl Model {
             Self::download_model(&first_dir, model_name)?;
             Ok(first_dir.join(model_name))
         } else {
-            anyhow::bail!("Model name {} does not exist", model_name)
+            Err(Error::ModelNotFound(model_name.to_string()))
         }
     }
 
@@ -420,7 +423,7 @@ impl Model {
             Self::download_model(&first_dir, &model.name)?;
             Ok(first_dir.join(&model.name))
         } else {
-            anyhow::bail!("Language {} does not exist", lang)
+            Err(Error::LanguageNotFound(lang.to_string()))
         }
     }
 

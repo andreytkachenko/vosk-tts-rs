@@ -1,6 +1,6 @@
+use crate::error::{Error, Result};
 use crate::g2p;
 use crate::model::{Model, PhonemeIdValue};
-use anyhow::Result;
 use log::info;
 use ndarray::ArrayD;
 use ort::value::Value;
@@ -209,7 +209,7 @@ impl Synth {
         let audio_value = &outputs[0];
         let (_audio_shape, audio_data) = audio_value
             .try_extract_tensor::<f32>()
-            .map_err(|e| anyhow::anyhow!("Failed to extract audio tensor: {}", e))?;
+            .map_err(|e| Error::AudioTensorExtract(e.to_string()))?;
 
         // audio_data may have shape (1, T_audio) or (T_audio,) - flatten and scale
         let audio_data_vec: Vec<f32> = audio_data.to_vec();
